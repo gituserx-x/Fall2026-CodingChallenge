@@ -31,7 +31,7 @@ Vite will provide a local URL (typically http://localhost:5173). Open that URL i
 The backend and frontend must both be running at the same time for the application to work properly.
 
  
-* REFLECTION: I learned a lot throughout this challenge. Majority of my experience has been with backend or frontend code separately, so it was cool and challenging to connect them. The skills I have learned from the hours spent on this project will also be directly applicable to the software dev project I'm doing for the CMA department, so I'm really glad I spent the time on it.
+* REFLECTION: I learned a lot throughout this challenge. Majority of my experience has been with backend or frontend code separately, so it was cool and challenging to connect them. The pop-up to allow the user to immediately edit an image without scrolling down was one of the trickiest parts to figure out. The skills I have learned from the hours spent on this project will be directly applicable to the software dev project I'm doing for the CMA department, so I'm really glad I spent the time on it. 
 
 * FEEDBACK: Office hours were great, Ashrit was super generous staying 1.5+ hours late to keep answering our questions. I would suggest updating the time estimate of 5 hours, likely quite a bit longer for most people (including myself) who don't have a ton of experience on JS/React.
 
