@@ -189,12 +189,17 @@ function App() {
 
 
 
+
 async function updateImage() {
-  if (!editingImage || !selectedCollection) return;
+  if (!editingImage) return;
+
+  const collection = selectedCollection || sharedCollection;
+
+  if (!collection) return;
 
   try {
     const response = await fetch(
-      `${API_URL}/collections/${selectedCollection.id}/images/${editingImage.id}`,
+      `${API_URL}/collections/${collection.id}/images/${editingImage.id}`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -211,23 +216,36 @@ async function updateImage() {
 
     setEditingImage(null);
 
-  const updatedCollections = await fetch(
-    `${API_URL}/collections`
-  ).then(res => res.json());
+    const updatedCollections = await fetch(
+      `${API_URL}/collections`
+    ).then(res => res.json());
 
-  setCollections(updatedCollections);
+    setCollections(updatedCollections);
 
-  const updatedCollection = updatedCollections.find(
-  (collection: Collection) => collection.id === selectedCollection.id
-  );
+    const updatedCollection = updatedCollections.find(
+      (collection: Collection) => collection.id === collection.id
+    );
 
-  setSelectedCollection(updatedCollection);
+    if (selectedCollection) {
+      setSelectedCollection(
+        updatedCollections.find(
+          (c: Collection) => c.id === selectedCollection.id
+        )
+      );
+    }
+
+    if (sharedCollection) {
+      setSharedCollection(
+        updatedCollections.find(
+          (c: Collection) => c.id === sharedCollection.id
+        )
+      );
+    }
 
   } catch (error) {
     console.error('Error updating image:', error);
   }
 }
-
 
 
 
@@ -347,7 +365,6 @@ async function updateCollection() {
 
 
 
-
 function shareCollection(collectionId: string) {
   const shareUrl = `${window.location.origin}/share/${collectionId}`;
 
@@ -358,6 +375,116 @@ function shareCollection(collectionId: string) {
     .catch(() => {
       alert(`Share this link: ${shareUrl}`);
     });
+}
+
+
+
+
+
+
+
+async function updateSharedImage() {
+  if (!editingImage || !sharedCollection) return;
+
+  try {
+    const response = await fetch(
+      `${API_URL}/collections/${sharedCollection.id}/images/${editingImage.id}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tags: editingImage.tags,
+          note: editingImage.note
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to update shared image');
+    }
+
+    const updatedCollection = await fetch(
+      `${API_URL}/collections/${sharedCollection.id}`
+    ).then(res => res.json());
+
+    setSharedCollection(updatedCollection);
+    setEditingImage(null);
+
+  } catch (error) {
+    console.error('Error updating shared image:', error);
+  }
+}
+
+
+
+
+
+
+
+async function deleteSharedImage(imageId: string) {
+  if (!sharedCollection) return;
+
+  try {
+    const response = await fetch(
+      `${API_URL}/collections/${sharedCollection.id}/images/${imageId}`,
+      {
+        method: 'DELETE'
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to delete shared image');
+    }
+
+    const updatedCollection = await fetch(
+      `${API_URL}/collections/${sharedCollection.id}`
+    ).then(res => res.json());
+
+    setSharedCollection(updatedCollection);
+
+  } catch (error) {
+    console.error('Error deleting shared image:', error);
+  }
+}
+
+
+
+
+
+
+
+async function addImageToSharedCollection(image: any) {
+  if (!sharedCollection) return;
+
+  try {
+    const response = await fetch(
+      `${API_URL}/collections/${sharedCollection.id}/images`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: image.webformatURL,
+          tags: image.tags,
+          note: ''
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to add image to shared collection');
+    }
+
+    const updatedCollection = await fetch(
+      `${API_URL}/collections/${sharedCollection.id}`
+    ).then(res => res.json());
+
+    setSharedCollection(updatedCollection);
+    setImageToSave(null);
+    setShowSavedPopup(true);
+
+  } catch (error) {
+    console.error('Error adding image to shared collection:', error);
+  }
 }
 
 
@@ -378,35 +505,231 @@ function shareCollection(collectionId: string) {
   
   if (isSharedPage) {
   return (
-    <div style={{ padding: '2rem 0', width: '100%', boxSizing: 'border-box' }}>
+    <div
+      style={{
+        padding: '2rem 0',
+        width: '100%',
+        boxSizing: 'border-box'
+      }}
+    >
       {sharedCollection ? (
-        <div>
+        <div className="collection-view">
+
           <h1>{sharedCollection.name}</h1>
 
-          {sharedCollection.images.map((image) => (
-            <div key={image.id} style={{ marginBottom: '2rem' }}>
-              <img
-                src={image.url}
-                alt={image.note}
-                style={{ width: '300px' }}
+          <p>Shared collection — you can add, edit, and remove images.</p>
+
+        {!searchOpen && (
+        <button onClick={() => setSearchOpen(true)}>
+          Search Images
+        </button>
+        )}
+
+      {searchOpen && (
+       <div style={{ marginBottom: '2rem' }}>
+       <input
+         type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search for an image to add"
+        />
+
+      <button onClick={searchImages}>
+       Search
+      </button>
+
+      <button
+        onClick={() => {
+          setSearchOpen(false);
+          setSearchTerm('');
+          setSearchResults([]);
+        }}
+     >
+      Close Search
+      </button>
+      </div>
+    )}
+
+
+
+
+          <div className="image-grid">
+          {searchResults.map((image) => (
+           <div key={image.id}>
+             <img
+               src={image.webformatURL}
+                alt={image.tags}
+               style={{ width: '200px' }}
+             />
+
+             <button
+              onClick={() => addImageToSharedCollection(image)}
+              >
+            Add to Collection
+            </button>
+
+
+            </div>
+         ))}
+        </div>
+
+
+          <div className="collection-image-grid">
+            {sharedCollection.images.map((image) => (
+              <div
+                className="collection-image-card"
+                key={image.id}
+              >
+                <img
+                  src={image.url}
+                  alt={image.note}
+                />
+
+                <p className="image-tags">
+                  {image.tags}
+                </p>
+
+                <p className="image-note">
+                  {image.note}
+                </p>
+
+                <button
+                  onClick={() => setEditingImage(image)}
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => deleteSharedImage(image.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {editingImage && (
+            <div style={{ marginTop: '1rem' }}>
+              <h3>Edit Image</h3>
+
+              <input
+                type="text"
+                value={editingImage.tags}
+                onChange={(e) =>
+                  setEditingImage({
+                    ...editingImage,
+                    tags: e.target.value
+                  })
+                }
+                placeholder="Tags"
               />
 
-              <p>{image.tags}</p>
-              <p>{image.note}</p>
+              <input
+                type="text"
+                value={editingImage.note}
+                onChange={(e) =>
+                  setEditingImage({
+                    ...editingImage,
+                    note: e.target.value
+                  })
+                }
+                placeholder="Note"
+              />
+
+              <button onClick={updateSharedImage}>
+                Save Changes
+              </button>
+
+              <button
+                onClick={() => setEditingImage(null)}
+              >
+                Cancel
+              </button>
             </div>
-          ))}
+          )}
+
         </div>
-      ) : (
+       ) : (
         <p>Loading shared collection...</p>
       )}
+
+      {showSavedPopup && (
+        <div className="save-modal-overlay">
+          <div className="save-modal">
+            <button
+              className="close-modal"
+              onClick={() => setShowSavedPopup(false)}
+            >
+              ×
+            </button>
+
+            <h2>Image Saved!</h2>
+
+            <button
+              onClick={() => setShowSavedPopup(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+
+      {editingImage && (
+  <div className="save-modal-overlay">
+    <div className="save-modal">
+      <button
+        className="close-modal"
+        onClick={() => setEditingImage(null)}
+      >
+        ×
+      </button>
+
+      <h2>Edit Image</h2>
+
+      <input
+        type="text"
+        value={editingImage.tags}
+        onChange={(e) =>
+          setEditingImage({
+            ...editingImage,
+            tags: e.target.value
+          })
+        }
+        placeholder="Tags"
+      />
+
+      <input
+        type="text"
+        value={editingImage.note}
+        onChange={(e) =>
+          setEditingImage({
+            ...editingImage,
+            note: e.target.value
+          })
+        }
+        placeholder="Note"
+      />
+
+      <button onClick={updateImage}>
+        Save Changes
+      </button>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
 
 
+  
+
+
 
 
   // everything here down is JSX; actual UI react should display
+  // REGULAR non shared page
   return (
     // container around the actual page
     <div style={{ padding: '2rem 0', width: '100%', boxSizing: 'border-box' }}>
@@ -695,36 +1018,51 @@ function shareCollection(collectionId: string) {
 
 
       {editingImage && (
-      <div style={{ marginTop: '1rem' }}>
-        <h3>Edit Image</h3>
+  <div className="save-modal-overlay">
+    <div className="save-modal">
+      <button
+        className="close-modal"
+        onClick={() => setEditingImage(null)}
+      >
+        ×
+      </button>
 
-        <input
-          type="text"
-          value={editingImage.tags}
-          onChange={(e) =>
-            setEditingImage({
-              ...editingImage,
-              tags: e.target.value
-            })
-          }
-          placeholder="Tags"
-       />
+      <h2>Edit Image</h2>
 
-    <input
-      type="text"
-      value={editingImage.note}
-      onChange={(e) =>
-        setEditingImage({
-          ...editingImage,
-          note: e.target.value
-        })
-      }
-      placeholder="Note"
-    />
+      <input
+        type="text"
+        value={editingImage.tags}
+        onChange={(e) =>
+          setEditingImage({
+            ...editingImage,
+            tags: e.target.value
+          })
+        }
+        placeholder="Tags"
+      />
 
-    <button onClick={updateImage}>Save Changes</button>
+      <input
+        type="text"
+        value={editingImage.note}
+        onChange={(e) =>
+          setEditingImage({
+            ...editingImage,
+            note: e.target.value
+          })
+        }
+        placeholder="Note"
+      />
+
+      <button onClick={updateImage}>
+        Save Changes
+      </button>
+    </div>
   </div>
 )}
+
+
+
+
         </div>
       )}
     
